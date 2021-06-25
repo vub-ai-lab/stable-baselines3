@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 import gym
 import numpy as np
 import torch as th
-from torch.nn import functional as F
+import torch.multiprocessing as mp
 
 from stable_baselines3.common import logger
 from stable_baselines3.common.buffers import ReplayBuffer
@@ -11,6 +11,22 @@ from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.bdpi.policies import BDPIPolicy
 
+mp.set_sharing_strategy('file_system')
+
+def train_model(model, inp, outp, gradient_steps):
+    """ Function that trains a PyTorch module on inputs and outputs. It can be used with a process pool
+    """
+    mse_loss = th.nn.MSELoss(reduction='sum')
+
+    for i in range(gradient_steps):
+        predicted = model(inp)
+        loss = mse_loss(predicted, outp)
+
+        model.optimizer.zero_grad()
+        loss.backward()
+        model.optimizer.step()
+
+    return float(loss.item())
 
 class BDPI(OffPolicyAlgorithm):
     """
@@ -35,6 +51,7 @@ class BDPI(OffPolicyAlgorithm):
     :param train_freq: Update the model every ``train_freq`` steps. Alternatively pass a tuple of frequency and unit
         like ``(5, "step")`` or ``(2, "episode")``.
     :param gradient_steps: How many gradient steps to do after each rollout (see ``train_freq``)
+    :param threads Number of threads to use to train the actor and critics in parallel
     :param replay_buffer_class: Replay buffer class to use (for instance ``HerReplayBuffer``).
         If ``None``, it will be automatically selected.
     :param replay_buffer_kwargs: Keyword arguments to pass to the replay buffer on creation.
@@ -64,6 +81,7 @@ class BDPI(OffPolicyAlgorithm):
         gamma: float = 0.99,
         train_freq: Union[int, Tuple[int, str]] = 1,
         gradient_steps: int = 20,
+        threads: int = 1,
         replay_buffer_class: Optional[ReplayBuffer] = None,
         replay_buffer_kwargs: Optional[Dict[str, Any]] = None,
         optimize_memory_usage: bool = False,
@@ -106,6 +124,7 @@ class BDPI(OffPolicyAlgorithm):
 
         self.actor_lr = actor_lr
         self.critic_lr = critic_lr
+        self.pool = mp.Pool(threads)
 
         if _init_setup_model:
             self._setup_model()
@@ -117,6 +136,12 @@ class BDPI(OffPolicyAlgorithm):
         self.criticsA = self.policy.criticsA
         self.criticsB = self.policy.criticsB
 
+        self.actor.share_memory()
+
+        for cA, cB in zip(self.criticsA, self.criticsB):
+            cA.share_memory()
+            cB.share_memory()
+
     def train(self, gradient_steps: int, batch_size: int = 64) -> None:
         # Update optimizers learning rate
         optimizers = [self.actor.optimizer] + [c.optimizer for c in self.criticsA] + [c.optimizer for c in self.criticsB]
@@ -125,10 +150,16 @@ class BDPI(OffPolicyAlgorithm):
         actor_losses, critic_losses = [], []
         mse_loss = th.nn.MSELoss(reduction='sum')
 
+        th.autograd.set_detect_anomaly(True)
+
         # Update every critic (and the actor after each critic)
+        critic_losses = []
+        actor_losses = []
+
         for criticA, criticB in zip(self.criticsA, self.criticsB):
             # Sample replay buffer
-            replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
+            with th.no_grad():
+                replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
 
             # Update the critic (code taken from DQN)
             with th.no_grad():
@@ -147,15 +178,10 @@ class BDPI(OffPolicyAlgorithm):
                 actions = replay_data.actions.long().flatten()
                 target_q_values[QN, actions] += self.critic_lr * (target_values.flatten() - target_q_values[QN, actions])
 
-            for i in range(gradient_steps):
-                predicted_q_values = criticA(replay_data.observations)
-                loss = mse_loss(predicted_q_values, target_q_values)
+            critic_losses.append(
+                self.pool.apply_async(train_model, (criticA, replay_data.observations, target_q_values, gradient_steps))
+            )
 
-                criticA.optimizer.zero_grad()
-                loss.backward()
-                criticA.optimizer.step()
-
-            logger.record("train/critic_loss", float(loss.item()))
             logger.record("train/avg_q", float(target_q_values.mean()))
 
             # Update the actor
@@ -174,16 +200,14 @@ class BDPI(OffPolicyAlgorithm):
                 train_probas = (1. - alr) * actor_probas + alr * train_probas
                 train_probas /= train_probas.sum(-1, keepdim=True)
 
+            actor_losses.append(
+                self.pool.apply_async(train_model, (self.actor, replay_data.observations, train_probas, gradient_steps))
+            )
 
-            for i in range(gradient_steps):
-                predicted_probas = self.actor(replay_data.observations)
-                loss = mse_loss(predicted_probas, train_probas)
-
-                self.actor.optimizer.zero_grad()
-                loss.backward()
-                self.actor.optimizer.step()
-
-            logger.record("train/actor_loss", float(loss.item()))
+        # Log losses
+        for aloss, closs in zip(actor_losses, critic_losses):
+            logger.record("train/critic_loss", closs.get())
+            logger.record("train/actor_loss", aloss.get())
 
         # Swap QA and QB
         self.criticsA, self.criticsB = self.criticsB, self.criticsA
