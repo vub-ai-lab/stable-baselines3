@@ -1,9 +1,11 @@
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
+import copy
 import gym
 import numpy as np
 import torch as th
 import torch.multiprocessing as mp
+import random
 
 from stable_baselines3.common import logger
 from stable_baselines3.common.buffers import ReplayBuffer
@@ -124,7 +126,8 @@ class BDPI(OffPolicyAlgorithm):
 
         self.actor_lr = actor_lr
         self.critic_lr = critic_lr
-        self.pool = mp.Pool(threads)
+        self.threads = threads
+        self.pool = mp.get_context('spawn').Pool(threads)
 
         if _init_setup_model:
             self._setup_model()
@@ -142,6 +145,10 @@ class BDPI(OffPolicyAlgorithm):
             cA.share_memory()
             cB.share_memory()
 
+    def _excluded_save_params(self):
+        # Process pools cannot be pickled, so ignore it when saving a model. A new pool will be re-created when loading (by __init__)
+        return super()._excluded_save_params() + ['pool']
+
     def train(self, gradient_steps: int, batch_size: int = 64) -> None:
         # Update optimizers learning rate
         optimizers = [self.actor.optimizer] + [c.optimizer for c in self.criticsA] + [c.optimizer for c in self.criticsB]
@@ -152,11 +159,14 @@ class BDPI(OffPolicyAlgorithm):
 
         th.autograd.set_detect_anomaly(True)
 
-        # Update every critic (and the actor after each critic)
+        # Update every critic (and the actor after each critic), in a random order
         critic_losses = []
         actor_losses = []
+        critics = list(zip(self.criticsA, self.criticsB))
 
-        for criticA, criticB in zip(self.criticsA, self.criticsB):
+        random.shuffle(critics)
+
+        for criticA, criticB in critics:
             # Sample replay buffer
             with th.no_grad():
                 replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
@@ -167,7 +177,7 @@ class BDPI(OffPolicyAlgorithm):
                 qvB = criticB(replay_data.next_observations)
                 qv = th.min(qvA, qvB)
 
-                QN = th.arange(replay_data.next_observations.shape[0])
+                QN = th.arange(replay_data.rewards.shape[0])
                 next_q_values = qv[QN, qvA.argmax(1)].reshape(-1, 1)
 
                 # 1-step TD target

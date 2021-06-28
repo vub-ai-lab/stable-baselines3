@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from stable_baselines3 import A2C, DDPG, DQN, PPO, SAC, TD3
+from stable_baselines3 import A2C, DDPG, DQN, PPO, SAC, TD3, BDPI
 from stable_baselines3.common.envs import IdentityEnv, IdentityEnvBox, IdentityEnvMultiBinary, IdentityEnvMultiDiscrete
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.noise import NormalActionNoise
@@ -10,13 +10,13 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 DIM = 4
 
 
-@pytest.mark.parametrize("model_class", [A2C, PPO, DQN])
+@pytest.mark.parametrize("model_class", [A2C, PPO, DQN, BDPI])
 @pytest.mark.parametrize("env", [IdentityEnv(DIM), IdentityEnvMultiDiscrete(DIM), IdentityEnvMultiBinary(DIM)])
 def test_discrete(model_class, env):
     env_ = DummyVecEnv([lambda: env])
     kwargs = {}
     n_steps = 3000
-    if model_class == DQN:
+    if model_class in [DQN, BDPI]:
         kwargs = dict(learning_starts=0)
         n_steps = 4000
         # DQN only support discrete actions

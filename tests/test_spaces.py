@@ -2,7 +2,7 @@ import gym
 import numpy as np
 import pytest
 
-from stable_baselines3 import A2C, DDPG, DQN, PPO, SAC, TD3
+from stable_baselines3 import A2C, DDPG, DQN, PPO, SAC, TD3, BDPI
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.evaluation import evaluate_policy
 
@@ -33,7 +33,7 @@ class DummyMultiBinary(gym.Env):
         return self.observation_space.sample(), 0.0, False, {}
 
 
-@pytest.mark.parametrize("model_class", [SAC, TD3, DQN])
+@pytest.mark.parametrize("model_class", [SAC, TD3, DQN, BDPI])
 @pytest.mark.parametrize("env", [DummyMultiDiscreteSpace([4, 3]), DummyMultiBinary(8)])
 def test_identity_spaces(model_class, env):
     """
@@ -41,7 +41,7 @@ def test_identity_spaces(model_class, env):
     for MultiDiscrete and MultiBinary.
     """
     # DQN only support discrete actions
-    if model_class == DQN:
+    if model_class in [DQN, BDPI]:
         env.action_space = gym.spaces.Discrete(4)
 
     env = gym.wrappers.TimeLimit(env, max_episode_steps=100)
@@ -52,12 +52,12 @@ def test_identity_spaces(model_class, env):
     evaluate_policy(model, env, n_eval_episodes=5, warn=False)
 
 
-@pytest.mark.parametrize("model_class", [A2C, DDPG, DQN, PPO, SAC, TD3])
+@pytest.mark.parametrize("model_class", [A2C, DDPG, DQN, PPO, SAC, TD3, BDPI])
 @pytest.mark.parametrize("env", ["Pendulum-v0", "CartPole-v1"])
 def test_action_spaces(model_class, env):
     if model_class in [SAC, DDPG, TD3]:
         supported_action_space = env == "Pendulum-v0"
-    elif model_class == DQN:
+    elif model_class in [DQN, BDPI]:
         supported_action_space = env == "CartPole-v1"
     elif model_class in [A2C, PPO]:
         supported_action_space = True

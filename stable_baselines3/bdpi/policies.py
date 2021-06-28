@@ -86,11 +86,15 @@ class Actor(BasePolicy):
         """
         probas = self.forward(observation)
 
-        return th.multinomial(
-            probas,
-            num_samples=1
-        ).flatten()
-
+        if deterministic:
+            # Take the argmax
+            return th.max(probas, 1)[1].flatten()
+        else:
+            # Sample according to probabilities
+            return th.multinomial(
+                probas,
+                num_samples=1
+            ).flatten()
 
 class BDPIPolicy(BasePolicy):
     """
@@ -213,7 +217,7 @@ class BDPIPolicy(BasePolicy):
         return self._predict(obs, deterministic=deterministic)
 
     def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:
-        return self.actor._predict(observation)
+        return self.actor._predict(observation, deterministic)
 
 
 MlpPolicy = BDPIPolicy

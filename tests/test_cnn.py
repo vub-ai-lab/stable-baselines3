@@ -6,14 +6,14 @@ import pytest
 import torch as th
 from gym import spaces
 
-from stable_baselines3 import A2C, DQN, PPO, SAC, TD3
+from stable_baselines3 import A2C, DQN, PPO, SAC, TD3, BDPI
 from stable_baselines3.common.envs import FakeImageEnv
 from stable_baselines3.common.preprocessing import is_image_space, is_image_space_channels_first
 from stable_baselines3.common.utils import zip_strict
 from stable_baselines3.common.vec_env import VecTransposeImage, is_vecenv_wrapped
 
 
-@pytest.mark.parametrize("model_class", [A2C, PPO, SAC, TD3, DQN])
+@pytest.mark.parametrize("model_class", [A2C, PPO, SAC, TD3, DQN, BDPI])
 def test_cnn(tmp_path, model_class):
     SAVE_NAME = "cnn_model.zip"
     # Fake grayscale with frameskip

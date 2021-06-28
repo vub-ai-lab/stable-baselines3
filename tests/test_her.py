@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import torch as th
 
-from stable_baselines3 import DDPG, DQN, SAC, TD3, HerReplayBuffer
+from stable_baselines3 import DDPG, DQN, SAC, TD3, BDPI, HerReplayBuffer
 from stable_baselines3.common.envs import BitFlippingEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.monitor import Monitor
@@ -26,7 +26,7 @@ def test_import_error():
     assert "documentation" in str(excinfo.value)
 
 
-@pytest.mark.parametrize("model_class", [SAC, TD3, DDPG, DQN])
+@pytest.mark.parametrize("model_class", [SAC, TD3, DDPG, DQN, BDPI])
 @pytest.mark.parametrize("online_sampling", [True, False])
 @pytest.mark.parametrize("image_obs_space", [True, False])
 def test_her(model_class, online_sampling, image_obs_space):
@@ -36,7 +36,7 @@ def test_her(model_class, online_sampling, image_obs_space):
     n_bits = 4
     env = BitFlippingEnv(
         n_bits=n_bits,
-        continuous=not (model_class == DQN),
+        continuous=(model_class not in [DQN, BDPI]),
         image_obs_space=image_obs_space,
     )
 
@@ -102,7 +102,7 @@ def test_goal_selection_strategy(goal_selection_strategy, online_sampling):
     model.learn(total_timesteps=150)
 
 
-@pytest.mark.parametrize("model_class", [SAC, TD3, DDPG, DQN])
+@pytest.mark.parametrize("model_class", [SAC, TD3, DDPG, DQN, BDPI])
 @pytest.mark.parametrize("use_sde", [False, True])
 @pytest.mark.parametrize("online_sampling", [False, True])
 def test_save_load(tmp_path, model_class, use_sde, online_sampling):
@@ -113,7 +113,7 @@ def test_save_load(tmp_path, model_class, use_sde, online_sampling):
         pytest.skip("Only SAC has gSDE support")
 
     n_bits = 4
-    env = BitFlippingEnv(n_bits=n_bits, continuous=not (model_class == DQN))
+    env = BitFlippingEnv(n_bits=n_bits, continuous=(model_class not in [DQN, BDPI]))
 
     kwargs = dict(use_sde=True) if use_sde else {}
 
@@ -129,7 +129,6 @@ def test_save_load(tmp_path, model_class, use_sde, online_sampling):
             max_episode_length=n_bits,
         ),
         verbose=0,
-        tau=0.05,
         batch_size=128,
         learning_rate=0.001,
         policy_kwargs=dict(net_arch=[64]),

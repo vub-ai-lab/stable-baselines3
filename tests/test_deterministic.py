@@ -1,14 +1,18 @@
 import pytest
 
-from stable_baselines3 import A2C, DQN, PPO, SAC, TD3
+from stable_baselines3 import A2C, DQN, PPO, SAC, TD3, BDPI
 from stable_baselines3.common.noise import NormalActionNoise
 
 N_STEPS_TRAINING = 3000
 SEED = 0
 
 
-@pytest.mark.parametrize("algo", [A2C, DQN, PPO, SAC, TD3])
+@pytest.mark.parametrize("algo", [A2C, DQN, PPO, SAC, TD3, BDPI])
 def test_deterministic_training_common(algo):
+    # BDPI is not deterministic (critics are trained in a random order)
+    if algo is BDPI:
+        pytest.skip()
+
     results = [[], []]
     rewards = [[], []]
     # Smaller network
@@ -18,7 +22,7 @@ def test_deterministic_training_common(algo):
         kwargs.update({"action_noise": NormalActionNoise(0.0, 0.1), "learning_starts": 100})
     else:
         env_id = "CartPole-v1"
-        if algo == DQN:
+        if algo in [DQN, BDPI]:
             kwargs.update({"learning_starts": 100})
 
     for i in range(2):

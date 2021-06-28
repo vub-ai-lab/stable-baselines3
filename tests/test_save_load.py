@@ -10,21 +10,21 @@ import numpy as np
 import pytest
 import torch as th
 
-from stable_baselines3 import A2C, DDPG, DQN, PPO, SAC, TD3
+from stable_baselines3 import A2C, DDPG, DQN, PPO, SAC, TD3, BDPI
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.envs import FakeImageEnv, IdentityEnv, IdentityEnvBox
 from stable_baselines3.common.save_util import load_from_pkl, open_path, save_to_pkl
 from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-MODEL_LIST = [PPO, A2C, TD3, SAC, DQN, DDPG]
+MODEL_LIST = [PPO, A2C, TD3, SAC, DQN, DDPG, BDPI]
 
 
 def select_env(model_class: BaseAlgorithm) -> gym.Env:
     """
-    Selects an environment with the correct action space as DQN only supports discrete action space
+    Selects an environment with the correct action space as DQN and BDPI only support discrete action space
     """
-    if model_class == DQN:
+    if model_class in [DQN, BDPI]:
         return IdentityEnv(10)
     else:
         return IdentityEnvBox(10)
@@ -175,7 +175,7 @@ def test_set_env(model_class):
     env3 = select_env(model_class)
 
     kwargs = {}
-    if model_class in {DQN, DDPG, SAC, TD3}:
+    if model_class in {DQN, DDPG, SAC, TD3, BDPI}:
         kwargs = dict(learning_starts=100, train_freq=4)
     elif model_class in {A2C, PPO}:
         kwargs = dict(n_steps=64)
@@ -291,7 +291,7 @@ def test_save_load_env_cnn(tmp_path, model_class):
     os.remove(tmp_path / "test_save.zip")
 
 
-@pytest.mark.parametrize("model_class", [SAC, TD3, DQN])
+@pytest.mark.parametrize("model_class", [SAC, TD3, DQN, BDPI])
 def test_save_load_replay_buffer(tmp_path, model_class):
     path = pathlib.Path(tmp_path / "logs/replay_buffer.pkl")
     path.parent.mkdir(exist_ok=True, parents=True)  # to not raise a warning
@@ -322,7 +322,7 @@ def test_save_load_replay_buffer(tmp_path, model_class):
     )
 
 
-@pytest.mark.parametrize("model_class", [DQN, SAC, TD3])
+@pytest.mark.parametrize("model_class", [DQN, SAC, TD3, BDPI])
 @pytest.mark.parametrize("optimize_memory_usage", [False, True])
 def test_warn_buffer(recwarn, model_class, optimize_memory_usage):
     """
@@ -380,13 +380,13 @@ def test_save_load_policy(tmp_path, model_class, policy_str, use_sde):
     if policy_str == "MlpPolicy":
         env = select_env(model_class)
     else:
-        if model_class in [SAC, TD3, DQN, DDPG]:
+        if model_class in [SAC, TD3, DQN, DDPG, BDPI]:
             # Avoid memory error when using replay buffer
             # Reduce the size of the features
             kwargs = dict(
                 buffer_size=250, learning_starts=100, policy_kwargs=dict(features_extractor_kwargs=dict(features_dim=32))
             )
-        env = FakeImageEnv(screen_height=40, screen_width=40, n_channels=2, discrete=model_class == DQN)
+        env = FakeImageEnv(screen_height=40, screen_width=40, n_channels=2, discrete=(model_class in [DQN, BDPI]))
 
     if use_sde:
         kwargs["use_sde"] = True
@@ -403,7 +403,7 @@ def test_save_load_policy(tmp_path, model_class, policy_str, use_sde):
     policy = model.policy
     policy_class = policy.__class__
     actor, actor_class = None, None
-    if model_class in [SAC, TD3]:
+    if model_class in [SAC, TD3, BDPI]:
         actor = policy.actor
         actor_class = actor.__class__
 

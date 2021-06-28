@@ -2,7 +2,7 @@ import gym
 import pytest
 import torch as th
 
-from stable_baselines3 import A2C, DQN, PPO, SAC, TD3
+from stable_baselines3 import A2C, DQN, PPO, SAC, TD3, BDPI
 from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.vec_env import DummyVecEnv
 
@@ -12,6 +12,7 @@ MODEL_LIST = [
     TD3,
     SAC,
     DQN,
+    BDPI
 ]
 
 
@@ -19,8 +20,8 @@ MODEL_LIST = [
 def test_auto_wrap(model_class):
     # test auto wrapping of env into a VecEnv
 
-    # Use different environment for DQN
-    if model_class is DQN:
+    # Use different environment for DQN and BDPI (they don't support continuous actions)
+    if model_class in [DQN, BDPI]:
         env_name = "CartPole-v0"
     else:
         env_name = "Pendulum-v0"
@@ -40,7 +41,7 @@ def test_predict(model_class, env_id, device):
     if env_id == "CartPole-v1":
         if model_class in [SAC, TD3]:
             return
-    elif model_class in [DQN]:
+    elif model_class in [DQN, BDPI]:
         return
 
     # Test detection of different shapes by the predict method
