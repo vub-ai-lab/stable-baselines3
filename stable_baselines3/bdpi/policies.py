@@ -1,8 +1,7 @@
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 import gym
 import torch as th
-import numpy as np
 from torch import nn
 
 
@@ -56,8 +55,6 @@ class Actor(BasePolicy):
         self.activation_fn = activation_fn
 
         # One neural network in the policy, that maps a state to a discrete distribution over actions
-        last_layer_dim = net_arch[-1] if len(net_arch) > 0 else features_dim
-
         actor_net = create_mlp(features_dim, self.action_space.n, net_arch, activation_fn)
         actor_net.append(nn.Softmax(1))
 
@@ -95,6 +92,7 @@ class Actor(BasePolicy):
                 probas,
                 num_samples=1
             ).flatten()
+
 
 class BDPIPolicy(BasePolicy):
     """

@@ -1,8 +1,6 @@
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, Optional, Tuple, Type, Union, List
 
-import copy
 import gym
-import numpy as np
 import torch as th
 import torch.multiprocessing as mp
 import random
@@ -10,13 +8,29 @@ import random
 from stable_baselines3.common import logger
 from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
-from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
+from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule, TensorDict
 from stable_baselines3.bdpi.policies import BDPIPolicy
 
+# Because BDPI uses many critics per agent, and each critic has 2 Q-Networks, sharing them with file descriptors
+# exhausts the maximum number of open file descriptors on many Linux distributions. The file_system sharing method
+# creates many small files in /dev/shm, that are then shared by file-name. This avoids reaching the maximum number
+# of open file descriptors.
 mp.set_sharing_strategy('file_system')
 
-def train_model(model, inp, outp, gradient_steps):
-    """ Function that trains a PyTorch module on inputs and outputs. It can be used with a process pool
+
+def train_model(
+    model: th.nn.Module,
+    inp: Union[th.Tensor, TensorDict],
+    outp: th.Tensor,
+    gradient_steps: int,
+) -> float:
+    """ Train a PyTorch module on inputs and outputs, minimizing the MSE loss for gradient_steps steps.
+
+    :param model: PyTorch module to be trained. It must have a ".optimizer" attribute with an instance of Optimizer in it.
+    :param inp: Input tensor (or dictionary of tensors if model is a MultiInput model)
+    :param outp: Expected outputs tensor
+    :param gradient_steps: Number of gradient steps to execute when minimizing the MSE.
+    :return: MSE loss (with the 'sum' reduction) after the last gradient step, as a float.
     """
     mse_loss = th.nn.MSELoss(reduction='sum')
 
@@ -29,6 +43,7 @@ def train_model(model, inp, outp, gradient_steps):
         model.optimizer.step()
 
     return float(loss.item())
+
 
 class BDPI(OffPolicyAlgorithm):
     """
@@ -133,6 +148,8 @@ class BDPI(OffPolicyAlgorithm):
             self._setup_model()
 
     def _setup_model(self) -> None:
+        """ Create the BDPI actor and critics, and make their memory shared across processes.
+        """
         super(BDPI, self)._setup_model()
 
         self.actor = self.policy.actor
@@ -145,19 +162,38 @@ class BDPI(OffPolicyAlgorithm):
             cA.share_memory()
             cB.share_memory()
 
-    def _excluded_save_params(self):
-        # Process pools cannot be pickled, so ignore it when saving a model. A new pool will be re-created when loading (by __init__)
+    def _excluded_save_params(self) -> List[str]:
+        """ Process pools cannot be pickled, so exclude "self.pool" from the saved parameters of BDPI.
+        """
         return super()._excluded_save_params() + ['pool']
 
     def train(self, gradient_steps: int, batch_size: int = 64) -> None:
+        """ BDPI Training procedure.
+
+        This method is called every time-step (if train_freq=1, as in the original paper).
+        Every time this method is called, the following steps are performed:
+
+        - Every critic, in random order, gets updated with the Clipped DQN equation on its own batch of experiences
+        - Every critic, just after being updated, computes its greedy policy and updates the actor towards it
+        - After every critic has been updated, their QA and QB networks are swapped.
+
+        This method implements some basic multi-processing:
+
+        - Every critic and the actor are PyTorch modules with share_memory() called on them
+        - A process pool is used to perform the neural network training operations (gradient descent steps)
+
+        This approach only has a minimal impact on code, but does not scale very well:
+
+        - On the plus side, the actor is trained concurrently by several workers, ala HOGWILD
+        - However, the predictions (getting Q(next state), computing updated Q-Values and the greedy policy)
+          all happen sequentially in the main process. With self.threads>8, the bottleneck therefore becomes
+          the main process, that has to perform all the updates and predictions. The worker processes only
+          fit neural networks.
+        """
+
         # Update optimizers learning rate
         optimizers = [self.actor.optimizer] + [c.optimizer for c in self.criticsA] + [c.optimizer for c in self.criticsB]
         self._update_learning_rate(optimizers)
-
-        actor_losses, critic_losses = [], []
-        mse_loss = th.nn.MSELoss(reduction='sum')
-
-        th.autograd.set_detect_anomaly(True)
 
         # Update every critic (and the actor after each critic), in a random order
         critic_losses = []
