@@ -99,19 +99,20 @@ Clone the `rl-zoo repo <https://github.com/DLR-RM/rl-baselines3-zoo>`_:
   cd rl-baselines3-zoo/
 
 
-Run the benchmark (replace ``$ENV_ID`` by the envs mentioned above):
+Run the benchmark (replace ``$ENV_ID`` by the envs mentioned above, and ``$N`` with
+the number of CPU cores in your machine):
 
 .. code-block:: bash
 
-  python train.py --algo bdpi --env $ENV_ID --eval-episodes 10 --eval-freq 10000
+  python train.py --algo bdpi --env $ENV_ID --eval-episodes 10 --eval-freq 10000 -params threads:$N
 
 
-Plot the results (here for PyBullet envs only):
+Plot the results (here for LunarLander only):
 
 .. code-block:: bash
 
-  python scripts/all_plots.py -a bdpi -e HalfCheetah Ant Hopper Walker2D -f logs/ -o logs/ppo_results
-  python scripts/plot_from_file.py -i logs/ppo_results.pkl -latex -l BDPI
+  python scripts/all_plots.py -a bdpi -e LunarLander -f logs/ -o logs/bdpi_results
+  python scripts/plot_from_file.py -i logs/bdpi_results.pkl -latex -l BDPI
 
 
 Parameters

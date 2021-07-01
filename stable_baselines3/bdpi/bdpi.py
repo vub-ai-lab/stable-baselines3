@@ -49,7 +49,7 @@ class BDPI(OffPolicyAlgorithm):
     """
     Bootstrapped Dual Policy Iteration
 
-    Sample-efficient discrete-action RL algorithmn, built on one actor trained
+    Sample-efficient discrete-action RL algorithm, built on one actor trained
     to imitate the greedy policy of several Q-Learning critics.
 
     Paper: https://arxiv.org/abs/1903.04193
@@ -68,7 +68,7 @@ class BDPI(OffPolicyAlgorithm):
     :param train_freq: Update the model every ``train_freq`` steps. Alternatively pass a tuple of frequency and unit
         like ``(5, "step")`` or ``(2, "episode")``.
     :param gradient_steps: How many gradient steps to do after each rollout (see ``train_freq``)
-    :param threads Number of threads to use to train the actor and critics in parallel
+    :param threads: Number of threads to use to train the actor and critics in parallel
     :param replay_buffer_class: Replay buffer class to use (for instance ``HerReplayBuffer``).
         If ``None``, it will be automatically selected.
     :param replay_buffer_kwargs: Keyword arguments to pass to the replay buffer on creation.
@@ -82,7 +82,7 @@ class BDPI(OffPolicyAlgorithm):
     :param seed: Seed for the pseudo random generators
     :param device: Device (cpu, cuda, ...) on which the code should be run.
         Setting it to auto, the code will be run on the GPU if possible.
-    :param _init_setup_model: Whether or not to build the network at the creation of the instance
+    :param _init_setup_model: Whether or not to build the network at the creation of the instance.
     """
 
     def __init__(
