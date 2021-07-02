@@ -71,7 +71,7 @@ Train a BDPI agent on ``LunarLander-v2``, with hyper-parameters tuned by Optuna 
 
   del model # remove to demonstrate saving and loading
 
-  model = PPO.load("bdpi_lunarlander")
+  model = BDPI.load("bdpi_lunarlander")
 
   obs = env.reset()
   while True:
