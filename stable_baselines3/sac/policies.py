@@ -169,6 +169,24 @@ class Actor(BasePolicy):
         log_std = self.log_std(latent_pi)
         # Original Implementation to cap the standard deviation
         log_std = th.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
+
+        # Use advice if available in obs
+        if isinstance(obs, dict) and 'advice' in obs:
+            advice = obs['advice']
+            print(advice.shape)
+            assert len(advice.shape) >= 3 and advice.shape[1] == 2, "Advice must be a mean/std normal, with shape (batch_size, 2, *action_shape)"
+
+            with th.no_grad():
+                adv_mean = advice[:, 0]
+                adv_var = advice[:, 1] ** 2
+
+            # Combine two normals (end of page 2 of http://www.lucamartino.altervista.org/2003-003.pdf)
+            var = th.exp(2. * log_std)
+
+            mean_actions = (mean_actions * adv_var + adv_mean * var) / (var + adv_var + 1e-3)
+            std = th.sqrt(var * adv_var / (var + adv_var))
+            log_std = th.log(std)
+
         return mean_actions, log_std, {}
 
     def forward(self, obs: th.Tensor, deterministic: bool = False) -> th.Tensor:

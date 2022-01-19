@@ -21,12 +21,15 @@ class DummyDictEnv(gym.Env):
         channel_last=False,
         nested_dict_obs=False,
         vec_only=False,
+        advice=False
     ):
         super().__init__()
         if use_discrete_actions:
             self.action_space = spaces.Discrete(3)
+            advice_shape = (3,)
         else:
             self.action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
+            advice_shape = (2, 2)  # mean/std + (2,)
         N_CHANNELS = 1
         HEIGHT = 64
         WIDTH = 64
@@ -46,6 +49,10 @@ class DummyDictEnv(gym.Env):
                 "discrete": spaces.Discrete(4),
             }
         )
+
+        # Use advice if needed
+        if advice:
+            self.observation_space.spaces["advice"] = spaces.Box(shape=advice_shape, low=0.1, high=1.0)
 
         # For checking consistency with normal MlpPolicy
         if vec_only:
@@ -142,13 +149,14 @@ def test_consistency(model_class):
 
 @pytest.mark.parametrize("model_class", [PPO, A2C, DQN, DDPG, SAC, TD3])
 @pytest.mark.parametrize("channel_last", [False, True])
-def test_dict_spaces(model_class, channel_last):
+@pytest.mark.parametrize("advice", [False, True])
+def test_dict_spaces(model_class, channel_last, advice):
     """
     Additional tests for PPO/A2C/SAC/DDPG/TD3/DQN to check observation space support
     with mixed observation.
     """
     use_discrete_actions = model_class not in [SAC, TD3, DDPG]
-    env = DummyDictEnv(use_discrete_actions=use_discrete_actions, channel_last=channel_last)
+    env = DummyDictEnv(use_discrete_actions=use_discrete_actions, channel_last=channel_last, advice=advice)
     env = gym.wrappers.TimeLimit(env, 100)
 
     kwargs = {}

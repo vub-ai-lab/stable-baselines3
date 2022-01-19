@@ -254,6 +254,10 @@ class CombinedExtractor(BaseFeaturesExtractor):
 
         total_concat_size = 0
         for key, subspace in observation_space.spaces.items():
+            if key is "advice":
+                # Don't allow the network to see the advice as an input. It will be special-cased in the algorithms
+                continue
+
             if is_image_space(subspace):
                 extractors[key] = NatureCNN(subspace, features_dim=cnn_output_dim)
                 total_concat_size += cnn_output_dim
