@@ -463,6 +463,8 @@ class ActorCriticPolicy(BasePolicy):
 
         self.normalize_images = normalize_images
         self.log_std_init = log_std_init
+        self.log_std = th.tensor([1.0])
+
         dist_kwargs = None
         # Keyword arguments for gSDE distribution
         if use_sde:
@@ -589,12 +591,12 @@ class ActorCriticPolicy(BasePolicy):
         latent_pi, latent_vf = self.mlp_extractor(features)
         # Evaluate the values for the given observations
         values = self.value_net(latent_vf)
-        distribution = self._get_action_dist_from_latent(latent_pi)
+        distribution = self._get_action_dist_from_latent(latent_pi, obs)
         actions = distribution.get_actions(deterministic=deterministic)
         log_prob = distribution.log_prob(actions)
         return actions, values, log_prob
 
-    def _get_action_dist_from_latent(self, latent_pi: th.Tensor) -> Distribution:
+    def _get_action_dist_from_latent(self, latent_pi: th.Tensor, obs: th.Tensor) -> Distribution:
         """
         Retrieve action distribution given the latent codes.
 
@@ -602,9 +604,36 @@ class ActorCriticPolicy(BasePolicy):
         :return: Action distribution
         """
         mean_actions = self.action_net(latent_pi)
+        log_std = self.log_std
+
+        # Use advice if available
+        if isinstance(obs, dict) and 'advice' in obs:
+            advice = obs['advice']
+
+            if len(advice.shape) >= 3 and advice.shape[1] == 2:
+                # Mean/std advice for continuous actions
+                with th.no_grad():
+                    adv_mean = advice[:, 0]
+                    adv_var = advice[:, 1] ** 2
+
+                    log_std = th.ones_like(adv_var) * self.log_std
+                    var = th.exp(2. * log_std)
+
+                # Combine two normals (end of page 2 of http://www.lucamartino.altervista.org/2003-003.pdf)
+                mean_actions = (mean_actions * adv_var + adv_mean * var) / (var + adv_var + 1e-3)
+                std = th.sqrt(var * adv_var / (var + adv_var))
+                log_std = th.log(std)
+            else:
+                # Probability distribution (advice contains probabilities)
+                # Combine with element-wise multiplication of probas.
+                act = th.distributions.utils.logits_to_probs(mean_actions)
+                combined = (act * advice)
+                combined /= combined.sum(1, keepdim=True)
+
+                mean_actions = th.distributions.utils.probs_to_logits(combined)
 
         if isinstance(self.action_dist, DiagGaussianDistribution):
-            return self.action_dist.proba_distribution(mean_actions, self.log_std)
+            return self.action_dist.proba_distribution(mean_actions, log_std)
         elif isinstance(self.action_dist, CategoricalDistribution):
             # Here mean_actions are the logits before the softmax
             return self.action_dist.proba_distribution(action_logits=mean_actions)
@@ -615,7 +644,7 @@ class ActorCriticPolicy(BasePolicy):
             # Here mean_actions are the logits (before rounding to get the binary actions)
             return self.action_dist.proba_distribution(action_logits=mean_actions)
         elif isinstance(self.action_dist, StateDependentNoiseDistribution):
-            return self.action_dist.proba_distribution(mean_actions, self.log_std, latent_pi)
+            return self.action_dist.proba_distribution(mean_actions, log_std, latent_pi)
         else:
             raise ValueError("Invalid action distribution")
 
@@ -642,7 +671,7 @@ class ActorCriticPolicy(BasePolicy):
         # Preprocess the observation if needed
         features = self.extract_features(obs)
         latent_pi, latent_vf = self.mlp_extractor(features)
-        distribution = self._get_action_dist_from_latent(latent_pi)
+        distribution = self._get_action_dist_from_latent(latent_pi, obs)
         log_prob = distribution.log_prob(actions)
         values = self.value_net(latent_vf)
         return values, log_prob, distribution.entropy()
@@ -656,7 +685,7 @@ class ActorCriticPolicy(BasePolicy):
         """
         features = self.extract_features(obs)
         latent_pi = self.mlp_extractor.forward_actor(features)
-        return self._get_action_dist_from_latent(latent_pi)
+        return self._get_action_dist_from_latent(latent_pi, obs)
 
     def predict_values(self, obs: th.Tensor) -> th.Tensor:
         """
