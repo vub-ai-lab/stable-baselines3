@@ -173,7 +173,6 @@ class Actor(BasePolicy):
         # Use advice if available in obs
         if isinstance(obs, dict) and 'advice' in obs:
             advice = obs['advice']
-            print(advice.shape)
             assert len(advice.shape) >= 3 and advice.shape[1] == 2, "Advice must be a mean/std normal, with shape (batch_size, 2, *action_shape)"
 
             with th.no_grad():

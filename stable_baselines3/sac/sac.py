@@ -180,6 +180,19 @@ class SAC(OffPolicyAlgorithm):
         self.critic = self.policy.critic
         self.critic_target = self.policy.critic_target
 
+    def get_advice(self, obs: th.Tensor) -> th.Tensor:
+        # There must be no "advice" key in obs
+        if isinstance(obs, dict):
+            assert "advice" not in obs, "get_advice() cannot be called with advice already in obs, as this prevents the learned policy from producing advice in an unbiased way"
+
+        # Ask the actor for means and variances
+        with th.no_grad():
+            mean, log_std, _ = self.actor.get_action_dist_params(obs)
+            std = th.exp(log_std)
+
+        # Advice is a numpy array of shape (batch_size, 2 (mean/std), *action_shape).
+        return th.stack([mean, std], axis=1)
+
     def train(self, gradient_steps: int, batch_size: int = 64) -> None:
         # Switch to train mode (this affects batch norm / dropout)
         self.policy.set_training_mode(True)

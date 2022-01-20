@@ -162,6 +162,9 @@ class PPO(OnPolicyAlgorithm):
 
             self.clip_range_vf = get_schedule_fn(self.clip_range_vf)
 
+    def get_advice(self, obs: th.Tensor) -> th.Tensor:
+        return self.policy.get_advice(obs)
+
     def train(self) -> None:
         """
         Update policy using the currently gathered rollout buffer.

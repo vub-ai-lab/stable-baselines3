@@ -578,6 +578,27 @@ class ActorCriticPolicy(BasePolicy):
         # Setup optimizer with initial learning rate
         self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
 
+    def get_advice(self, obs: th.Tensor) -> th.Tensor:
+        # There must be no "advice" key in obs
+        if isinstance(obs, dict):
+            assert "advice" not in obs, "get_advice() cannot be called with advice already in obs, as this prevents the learned policy from producing advice in an unbiased way"
+
+        # Ask the actor for means and variances
+        with th.no_grad():
+            # Preprocess the observation if needed
+            features = self.extract_features(obs)
+            latent_pi, latent_vf = self.mlp_extractor(features)
+
+            mean = self.action_net(latent_pi)
+            std = th.ones_like(mean) * th.exp(self.log_std)
+
+        if isinstance(self.action_space, gym.spaces.Box):
+            # Advice is an array of shape (batch_size, 2 (mean/std), *action_shape).
+            return th.stack([mean, std], axis=1)
+        else:
+            # Advice is an array of shape (batch_size, num_actions), that must contain probabilities
+            return th.distributions.utils.logits_to_probs(mean)
+
     def forward(self, obs: th.Tensor, deterministic: bool = False) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
         """
         Forward pass in all the networks (actor and critic)
