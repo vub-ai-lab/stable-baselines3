@@ -71,6 +71,7 @@ Main Features
   modules/ppo
   modules/sac
   modules/td3
+  modules/bdpi
 
 .. toctree::
   :maxdepth: 1

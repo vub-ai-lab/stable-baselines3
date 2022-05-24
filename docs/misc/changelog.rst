@@ -193,6 +193,7 @@ Breaking Changes:
 
 New Features:
 ^^^^^^^^^^^^^
+- Added the ``BDPI`` algorithm for discrete action spaces (@steckdenis)
 - Added support for single-level ``Dict`` observation space (@JadenTravnik)
 - Added ``DictRolloutBuffer`` ``DictReplayBuffer`` to support dictionary observations (@JadenTravnik)
 - Added ``StackedObservations`` and ``StackedDictObservations`` that are used within ``VecFrameStack``
@@ -867,4 +868,4 @@ And all the contributors:
 @ShangqunYu @PierreExeter @JacopoPan @ltbd78 @tom-doerr @Atlis @liusida @09tangriro @amy12xx @juancroldan
 @benblack769 @bstee615 @c-rizz @skandermoalla @MihaiAnca13 @davidblom603 @ayeright @cyprienc
 @wkirgsn @AechPro @CUN-bjy @batu @IljaAvadiev @timokau @kachayev @cleversonahum
-@eleurent @ac-93 @cove9988 @theDebugger811 @hsuehch @Demetrio92 @thomasgubler @IperGiove
+@eleurent @ac-93 @cove9988 @theDebugger811 @hsuehch @Demetrio92 @thomasgubler @IperGiove @steckdenis

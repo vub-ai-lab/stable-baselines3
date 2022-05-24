@@ -2,7 +2,7 @@ import gym
 import numpy as np
 import pytest
 
-from stable_baselines3 import A2C, DDPG, DQN, PPO, SAC, TD3
+from stable_baselines3 import A2C, DDPG, DQN, PPO, SAC, TD3, BDPI
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.noise import NormalActionNoise, OrnsteinUhlenbeckActionNoise
 
@@ -80,18 +80,19 @@ def test_sac(ent_coef):
 
 
 @pytest.mark.parametrize("n_critics", [1, 3])
-def test_n_critics(n_critics):
+@pytest.mark.parametrize("model_class", [SAC, BDPI])
+def test_n_critics(n_critics, model_class):
     # Test SAC with different number of critics, for TD3, n_critics=1 corresponds to DDPG
-    model = SAC(
+    env_id = ("CartPole-v1" if model_class in [BDPI] else "Pendulum-v0")
+    model = model_class(
         "MlpPolicy",
-        "Pendulum-v0",
+        env_id,
         policy_kwargs=dict(net_arch=[64, 64], n_critics=n_critics),
         learning_starts=100,
         buffer_size=10000,
         verbose=1,
     )
     model.learn(total_timesteps=300)
-
 
 def test_dqn():
     model = DQN(
