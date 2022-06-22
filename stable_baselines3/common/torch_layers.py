@@ -251,20 +251,20 @@ class CombinedExtractor(BaseFeaturesExtractor):
         super(CombinedExtractor, self).__init__(observation_space, features_dim=1)
 
         extractors = {}
+        self.dims = {}
 
         total_concat_size = 0
         for key, subspace in observation_space.spaces.items():
-            if key is "advice":
-                # Don't allow the network to see the advice as an input. It will be special-cased in the algorithms
-                continue
-
             if is_image_space(subspace):
                 extractors[key] = NatureCNN(subspace, features_dim=cnn_output_dim)
                 total_concat_size += cnn_output_dim
             else:
                 # The observation key is a vector, flatten it if needed
                 extractors[key] = nn.Flatten()
-                total_concat_size += get_flattened_obs_dim(subspace)
+                dim = get_flattened_obs_dim(subspace)
+
+                self.dims[key] = dim
+                total_concat_size += dim
 
         self.extractors = nn.ModuleDict(extractors)
 
@@ -274,8 +274,18 @@ class CombinedExtractor(BaseFeaturesExtractor):
     def forward(self, observations: TensorDict) -> th.Tensor:
         encoded_tensor_list = []
 
+        for k, v in observations.items():
+            batch_size = v.shape[0]
+
         for key, extractor in self.extractors.items():
-            encoded_tensor_list.append(extractor(observations[key]))
+            if key == "advice":
+                # Don't allow the network to see the advice as an input. It will be special-cased in the algorithms
+                encoded = th.zeros(batch_size, self.dims[key])
+            else:
+                encoded = extractor(observations[key])
+
+            encoded_tensor_list.append(encoded)
+
         return th.cat(encoded_tensor_list, dim=1)
 
 
