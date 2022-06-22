@@ -5,7 +5,7 @@ import gym
 import numpy as np
 import pytest
 
-from stable_baselines3 import A2C, DDPG, DQN, PPO, SAC, TD3, HerReplayBuffer
+from stable_baselines3 import A2C, DDPG, DQN, PPO, SAC, TD3, BDPI, HerReplayBuffer
 from stable_baselines3.common.callbacks import (
     CallbackList,
     CheckpointCallback,
@@ -19,7 +19,7 @@ from stable_baselines3.common.envs import BitFlippingEnv, IdentityEnv
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 
-@pytest.mark.parametrize("model_class", [A2C, PPO, SAC, TD3, DQN, DDPG])
+@pytest.mark.parametrize("model_class", [A2C, PPO, SAC, TD3, DQN, DDPG, BDPI])
 def test_callbacks(tmp_path, model_class):
     log_folder = tmp_path / "logs/callbacks/"
 
@@ -96,7 +96,7 @@ def test_callbacks(tmp_path, model_class):
 
 
 def select_env(model_class) -> str:
-    if model_class is DQN:
+    if model_class in [DQN, BDPI]:
         return "CartPole-v0"
     else:
         return "Pendulum-v0"
