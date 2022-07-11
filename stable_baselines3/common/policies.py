@@ -637,13 +637,14 @@ class ActorCriticPolicy(BasePolicy):
                     adv_mean = advice[:, 0]
                     adv_var = advice[:, 1] ** 2
 
-                    log_std = th.ones_like(adv_var) * self.log_std
+                    # XXX log_std = th.ones_like(adv_var) * self.log_std
                     var = th.exp(2. * log_std)
 
                 # Combine two normals (end of page 2 of http://www.lucamartino.altervista.org/2003-003.pdf)
-                mean_actions = (mean_actions * adv_var + adv_mean * var) / (var + adv_var + 1e-3)
-                std = th.sqrt(var * adv_var / (var + adv_var))
-                log_std = th.log(std)
+                #mean_actions = (mean_actions * adv_var + adv_mean * var) / (var + adv_var + 1e-3)
+                #std = th.sqrt(var * adv_var / (var + adv_var))
+                #log_std = th.log(std)
+                mean_actions = (mean_actions + adv_mean) / 2
             else:
                 # Probability distribution (advice contains probabilities)
                 # Combine with element-wise multiplication of probas.
