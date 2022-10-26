@@ -5,7 +5,6 @@ import torch as th
 import torch.multiprocessing as mp
 import random
 
-from stable_baselines3.common import logger
 from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule, TensorDict
@@ -228,7 +227,7 @@ class BDPI(OffPolicyAlgorithm):
                 self.pool.apply_async(train_model, (criticA, replay_data.observations, target_q_values, gradient_steps))
             )
 
-            logger.record("train/avg_q", float(target_q_values.mean()))
+            self.logger.record("train/avg_q", float(target_q_values.mean()))
 
             # Update the actor
             with th.no_grad():
@@ -252,8 +251,8 @@ class BDPI(OffPolicyAlgorithm):
 
         # Log losses
         for aloss, closs in zip(actor_losses, critic_losses):
-            logger.record("train/critic_loss", closs.get())
-            logger.record("train/actor_loss", aloss.get())
+            self.logger.record("train/critic_loss", closs.get())
+            self.logger.record("train/actor_loss", aloss.get())
 
         # Swap QA and QB
         self.criticsA, self.criticsB = self.criticsB, self.criticsA
