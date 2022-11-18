@@ -43,7 +43,7 @@ def test_squashed_gaussian(model_class):
     """
     Test run with squashed Gaussian (notably entropy computation)
     """
-    model = model_class("MlpPolicy", "Pendulum-v0", use_sde=True, n_steps=64, policy_kwargs=dict(squash_output=True))
+    model = model_class("MlpPolicy", "Pendulum-v1", use_sde=True, n_steps=64, policy_kwargs=dict(squash_output=True))
     model.learn(500)
 
     gaussian_mean = th.rand(N_SAMPLES, N_ACTIONS)
@@ -57,10 +57,10 @@ def test_squashed_gaussian(model_class):
 @pytest.fixture()
 def dummy_model_distribution_obs_and_actions() -> Tuple[A2C, np.array, np.array]:
     """
-    Fixture creating a Pendulum-v0 gym env, an A2C model and sampling 10 random observations and actions from the env
+    Fixture creating a Pendulum-v1 gym env, an A2C model and sampling 10 random observations and actions from the env
     :return: A2C model, random observations, random actions
     """
-    env = gym.make("Pendulum-v0")
+    env = gym.make("Pendulum-v1")
     model = A2C("MlpPolicy", env, seed=23)
     random_obs = np.array([env.observation_space.sample() for _ in range(10)])
     random_actions = np.array([env.action_space.sample() for _ in range(10)])
@@ -77,6 +77,8 @@ def test_get_distribution(dummy_model_distribution_obs_and_actions):
         distribution = model.policy.get_distribution(observations)
         log_prob_2 = distribution.log_prob(actions)
         entropy_2 = distribution.entropy()
+        assert entropy_1 is not None
+        assert entropy_2 is not None
         assert th.allclose(log_prob_1, log_prob_2)
         assert th.allclose(entropy_1, entropy_2)
 
@@ -163,7 +165,9 @@ def test_categorical(dist, CAT_ACTIONS):
         BernoulliDistribution(N_ACTIONS).proba_distribution(th.rand(N_ACTIONS)),
         CategoricalDistribution(N_ACTIONS).proba_distribution(th.rand(N_ACTIONS)),
         DiagGaussianDistribution(N_ACTIONS).proba_distribution(th.rand(N_ACTIONS), th.rand(N_ACTIONS)),
-        MultiCategoricalDistribution([N_ACTIONS, N_ACTIONS]).proba_distribution(th.rand(1, sum([N_ACTIONS, N_ACTIONS]))),
+        MultiCategoricalDistribution(np.array([N_ACTIONS, N_ACTIONS])).proba_distribution(
+            th.rand(1, sum([N_ACTIONS, N_ACTIONS]))
+        ),
         SquashedDiagGaussianDistribution(N_ACTIONS).proba_distribution(th.rand(N_ACTIONS), th.rand(N_ACTIONS)),
         StateDependentNoiseDistribution(N_ACTIONS).proba_distribution(
             th.rand(N_ACTIONS), th.rand([N_ACTIONS, N_ACTIONS]), th.rand([N_ACTIONS, N_ACTIONS])

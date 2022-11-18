@@ -1,9 +1,10 @@
 import io
 import pathlib
+import sys
 import time
 import warnings
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import gym
 import numpy as np
@@ -20,15 +21,16 @@ from stable_baselines3.common.utils import safe_mean, should_collect_more_steps
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.her.her_replay_buffer import HerReplayBuffer
 
+OffPolicyAlgorithmSelf = TypeVar("OffPolicyAlgorithmSelf", bound="OffPolicyAlgorithm")
+
 
 class OffPolicyAlgorithm(BaseAlgorithm):
     """
     The base for Off-Policy algorithms (ex: SAC/TD3)
 
-    :param policy: Policy object
+    :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...)
     :param env: The environment to learn from
                 (if registered in Gym, can be str. Can be None for loading trained models)
-    :param policy_base: The base policy used by this method
     :param learning_rate: learning rate for the optimizer,
         it can be a function of the current progress remaining (from 1 to 0)
     :param buffer_size: size of the replay buffer
@@ -51,14 +53,13 @@ class OffPolicyAlgorithm(BaseAlgorithm):
         See https://github.com/DLR-RM/stable-baselines3/issues/37#issuecomment-637501195
     :param policy_kwargs: Additional arguments to be passed to the policy on creation
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
-    :param verbose: The verbosity level: 0 none, 1 training information, 2 debug
+    :param verbose: Verbosity level: 0 for no output, 1 for info messages (such as device or wrappers used), 2 for
+        debug messages
     :param device: Device on which the code should run.
         By default, it will try to use a Cuda compatible device and fallback to cpu
         if it is not possible.
     :param support_multi_env: Whether the algorithm supports training
         with multiple environments (as in A2C)
-    :param create_eval_env: Whether to create a second environment that will be
-        used for evaluating the agent periodically. (Only available when passing string for the environment)
     :param monitor_wrapper: When creating an environment, whether to wrap it
         or not in a Monitor wrapper.
     :param seed: Seed for the pseudo random generators
@@ -69,16 +70,13 @@ class OffPolicyAlgorithm(BaseAlgorithm):
     :param use_sde_at_warmup: Whether to use gSDE instead of uniform sampling
         during the warm up phase (before learning starts)
     :param sde_support: Whether the model support gSDE or not
-    :param remove_time_limit_termination: Remove terminations (dones) that are due to time limit.
-        See https://github.com/hill-a/stable-baselines/issues/863
     :param supported_action_spaces: The action spaces supported by the algorithm.
     """
 
     def __init__(
         self,
-        policy: Type[BasePolicy],
+        policy: Union[str, Type[BasePolicy]],
         env: Union[GymEnv, str],
-        policy_base: Type[BasePolicy],
         learning_rate: Union[float, Schedule],
         buffer_size: int = 1_000_000,  # 1e6
         learning_starts: int = 100,
@@ -88,7 +86,7 @@ class OffPolicyAlgorithm(BaseAlgorithm):
         train_freq: Union[int, Tuple[int, str]] = (1, "step"),
         gradient_steps: int = 1,
         action_noise: Optional[ActionNoise] = None,
-        replay_buffer_class: Optional[ReplayBuffer] = None,
+        replay_buffer_class: Optional[Type[ReplayBuffer]] = None,
         replay_buffer_kwargs: Optional[Dict[str, Any]] = None,
         optimize_memory_usage: bool = False,
         policy_kwargs: Optional[Dict[str, Any]] = None,
@@ -96,28 +94,24 @@ class OffPolicyAlgorithm(BaseAlgorithm):
         verbose: int = 0,
         device: Union[th.device, str] = "auto",
         support_multi_env: bool = False,
-        create_eval_env: bool = False,
         monitor_wrapper: bool = True,
         seed: Optional[int] = None,
         use_sde: bool = False,
         sde_sample_freq: int = -1,
         use_sde_at_warmup: bool = False,
         sde_support: bool = True,
-        remove_time_limit_termination: bool = False,
         supported_action_spaces: Optional[Tuple[gym.spaces.Space, ...]] = None,
     ):
 
-        super(OffPolicyAlgorithm, self).__init__(
+        super().__init__(
             policy=policy,
             env=env,
-            policy_base=policy_base,
             learning_rate=learning_rate,
             policy_kwargs=policy_kwargs,
             tensorboard_log=tensorboard_log,
             verbose=verbose,
             device=device,
             support_multi_env=support_multi_env,
-            create_eval_env=create_eval_env,
             monitor_wrapper=monitor_wrapper,
             seed=seed,
             use_sde=use_sde,
@@ -137,10 +131,6 @@ class OffPolicyAlgorithm(BaseAlgorithm):
             replay_buffer_kwargs = {}
         self.replay_buffer_kwargs = replay_buffer_kwargs
         self._episode_storage = None
-
-        # Remove terminations (dones) that are due to time limit
-        # see https://github.com/hill-a/stable-baselines/issues/863
-        self.remove_time_limit_termination = remove_time_limit_termination
 
         # Save train freq parameter, will be converted later to TrainFreq object
         self.train_freq = train_freq
@@ -167,8 +157,10 @@ class OffPolicyAlgorithm(BaseAlgorithm):
 
             try:
                 train_freq = (train_freq[0], TrainFrequencyUnit(train_freq[1]))
-            except ValueError:
-                raise ValueError(f"The unit of the `train_freq` must be either 'step' or 'episode' not '{train_freq[1]}'!")
+            except ValueError as e:
+                raise ValueError(
+                    f"The unit of the `train_freq` must be either 'step' or 'episode' not '{train_freq[1]}'!"
+                ) from e
 
             if not isinstance(train_freq[0], int):
                 raise ValueError(f"The frequency of `train_freq` must be an integer and not {train_freq[0]}")
@@ -273,13 +265,10 @@ class OffPolicyAlgorithm(BaseAlgorithm):
     def _setup_learn(
         self,
         total_timesteps: int,
-        eval_env: Optional[GymEnv],
         callback: MaybeCallback = None,
-        eval_freq: int = 10000,
-        n_eval_episodes: int = 5,
-        log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
         tb_log_name: str = "run",
+        progress_bar: bool = False,
     ) -> Tuple[int, BaseCallback]:
         """
         cf `BaseAlgorithm`.
@@ -315,37 +304,28 @@ class OffPolicyAlgorithm(BaseAlgorithm):
 
         return super()._setup_learn(
             total_timesteps,
-            eval_env,
             callback,
-            eval_freq,
-            n_eval_episodes,
-            log_path,
             reset_num_timesteps,
             tb_log_name,
+            progress_bar,
         )
 
     def learn(
-        self,
+        self: OffPolicyAlgorithmSelf,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 4,
-        eval_env: Optional[GymEnv] = None,
-        eval_freq: int = -1,
-        n_eval_episodes: int = 5,
         tb_log_name: str = "run",
-        eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
-    ) -> "OffPolicyAlgorithm":
+        progress_bar: bool = False,
+    ) -> OffPolicyAlgorithmSelf:
 
         total_timesteps, callback = self._setup_learn(
             total_timesteps,
-            eval_env,
             callback,
-            eval_freq,
-            n_eval_episodes,
-            eval_log_path,
             reset_num_timesteps,
             tb_log_name,
+            progress_bar,
         )
 
         callback.on_training_start(locals(), globals())
@@ -435,8 +415,8 @@ class OffPolicyAlgorithm(BaseAlgorithm):
         """
         Write log.
         """
-        time_elapsed = time.time() - self.start_time
-        fps = int((self.num_timesteps - self._num_timesteps_at_start) / (time_elapsed + 1e-8))
+        time_elapsed = max((time.time_ns() - self.start_time) / 1e9, sys.float_info.epsilon)
+        fps = int((self.num_timesteps - self._num_timesteps_at_start) / time_elapsed)
         self.logger.record("time/episodes", self._episode_num, exclude="tensorboard")
         if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
             self.logger.record("rollout/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))

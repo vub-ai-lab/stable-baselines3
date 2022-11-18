@@ -16,7 +16,7 @@ from stable_baselines3.common.vec_env import (
     unwrap_vec_normalize,
 )
 
-ENV_ID = "Pendulum-v0"
+ENV_ID = "Pendulum-v1"
 
 
 class DummyRewardEnv(gym.Env):
@@ -46,7 +46,7 @@ class DummyDictEnv(gym.GoalEnv):
     """
 
     def __init__(self):
-        super(DummyDictEnv, self).__init__()
+        super().__init__()
         self.observation_space = spaces.Dict(
             {
                 "observation": spaces.Box(low=-20.0, high=20.0, shape=(4,), dtype=np.float32),
@@ -115,15 +115,6 @@ def make_env():
 
 def make_dict_env():
     return Monitor(DummyDictEnv())
-
-
-def test_deprecation():
-    venv = DummyVecEnv([lambda: gym.make("CartPole-v1")])
-    venv = VecNormalize(venv)
-    with pytest.warns(None) as record:
-        assert np.allclose(venv.ret, venv.returns)
-    # Deprecation warning when using .ret
-    assert len(record) == 1
 
 
 def check_rms_equal(rmsa, rmsb):
@@ -379,19 +370,18 @@ def test_offpolicy_normalization(model_class, online_sampling):
     assert model.get_vec_normalize_env() is eval_env
     model.learn(total_timesteps=10)
     model.set_env(env)
-
-    model.learn(total_timesteps=150, eval_env=eval_env, eval_freq=75)
+    model.learn(total_timesteps=150)
     # Check getter
     assert isinstance(model.get_vec_normalize_env(), VecNormalize)
 
 
 @pytest.mark.parametrize("make_env", [make_env, make_dict_env])
 def test_sync_vec_normalize(make_env):
-    env = DummyVecEnv([make_env])
+    original_env = DummyVecEnv([make_env])
 
-    assert unwrap_vec_normalize(env) is None
+    assert unwrap_vec_normalize(original_env) is None
 
-    env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_obs=100.0, clip_reward=100.0)
+    env = VecNormalize(original_env, norm_obs=True, norm_reward=True, clip_obs=100.0, clip_reward=100.0)
 
     assert isinstance(unwrap_vec_normalize(env), VecNormalize)
 
@@ -432,6 +422,17 @@ def test_sync_vec_normalize(make_env):
     assert allclose(obs, eval_env.normalize_obs(original_obs))
     assert allclose(env.normalize_reward(dummy_rewards), eval_env.normalize_reward(dummy_rewards))
 
+    # Check synchronization when only reward is normalized
+    env = VecNormalize(original_env, norm_obs=False, norm_reward=True, clip_reward=100.0)
+    eval_env = DummyVecEnv([make_env])
+    eval_env = VecNormalize(eval_env, training=False, norm_obs=False, norm_reward=False)
+    env.reset()
+    env.step([env.action_space.sample()])
+    assert not np.allclose(env.ret_rms.mean, eval_env.ret_rms.mean)
+    sync_envs_normalization(env, eval_env)
+    assert np.allclose(env.ret_rms.mean, eval_env.ret_rms.mean)
+    assert np.allclose(env.ret_rms.var, eval_env.ret_rms.var)
+
 
 def test_discrete_obs():
     with pytest.raises(ValueError, match=".*only supports.*"):
@@ -450,3 +451,6 @@ def test_non_dict_obs_keys():
 
     # Ignore Discrete observation key
     _make_warmstart(lambda: DummyMixedDictEnv(), norm_obs_keys=["obs1", "obs3"])
+
+    # Test dict obs with norm_obs set to False
+    _make_warmstart(lambda: DummyMixedDictEnv(), norm_obs=False)

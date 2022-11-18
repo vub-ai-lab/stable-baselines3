@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Configuration file for the Sphinx documentation builder.
 #
@@ -14,6 +13,7 @@
 #
 import os
 import sys
+from typing import Dict, List
 from unittest.mock import MagicMock
 
 # We CANNOT enable 'sphinxcontrib.spelling' because ReadTheDocs.org does not support
@@ -25,12 +25,20 @@ try:
 except ImportError:
     enable_spell_check = False
 
+# Try to enable copy button
+try:
+    import sphinx_copybutton  # noqa: F401
+
+    enable_copy_button = True
+except ImportError:
+    enable_copy_button = False
+
 # source code directory, relative to this file, for sphinx-autobuild
 sys.path.insert(0, os.path.abspath(".."))
 
 
 class Mock(MagicMock):
-    __subclasses__ = []
+    __subclasses__ = []  # type: ignore
 
     @classmethod
     def __getattr__(cls, name):
@@ -41,18 +49,18 @@ class Mock(MagicMock):
 # Note: because of that we cannot test examples using CI
 # 'torch', 'torch.nn', 'torch.nn.functional',
 # DO not mock modules for now, we will need to do that for read the docs later
-MOCK_MODULES = []
+MOCK_MODULES: List[str] = []
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 # Read version from file
 version_file = os.path.join(os.path.dirname(__file__), "../stable_baselines3", "version.txt")
-with open(version_file, "r") as file_handler:
+with open(version_file) as file_handler:
     __version__ = file_handler.read().strip()
 
 # -- Project information -----------------------------------------------------
 
 project = "Stable Baselines3"
-copyright = "2020, Stable Baselines3"
+copyright = "2022, Stable Baselines3"
 author = "Stable Baselines3 Contributors"
 
 # The short X.Y version
@@ -84,6 +92,9 @@ extensions = [
 if enable_spell_check:
     extensions.append("sphinxcontrib.spelling")
 
+if enable_copy_button:
+    extensions.append("sphinx_copybutton")
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
@@ -101,7 +112,7 @@ master_doc = "index"
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -161,7 +172,7 @@ htmlhelp_basename = "StableBaselines3doc"
 
 # -- Options for LaTeX output ------------------------------------------------
 
-latex_elements = {
+latex_elements: Dict[str, str] = {
     # The paper size ('letterpaper' or 'a4paper').
     #
     # 'papersize': 'letterpaper',

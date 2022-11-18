@@ -1,4 +1,3 @@
-import warnings
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import gym
@@ -6,7 +5,7 @@ import torch as th
 from torch import nn
 
 from stable_baselines3.common.distributions import SquashedDiagGaussianDistribution, StateDependentNoiseDistribution
-from stable_baselines3.common.policies import BasePolicy, ContinuousCritic, register_policy
+from stable_baselines3.common.policies import BasePolicy, ContinuousCritic
 from stable_baselines3.common.preprocessing import get_action_dim
 from stable_baselines3.common.torch_layers import (
     BaseFeaturesExtractor,
@@ -38,9 +37,6 @@ class Actor(BasePolicy):
     :param log_std_init: Initial value for the log standard deviation
     :param full_std: Whether to use (n_features x n_actions) parameters
         for the std instead of only (n_features,) when using gSDE.
-    :param sde_net_arch: Network architecture for extracting features
-        when using gSDE. If None, the latent features from the policy will be used.
-        Pass an empty list to use the states as features.
     :param use_expln: Use ``expln()`` function instead of ``exp()`` when using gSDE to ensure
         a positive standard deviation (cf paper). It allows to keep variance
         above zero and prevent it from growing too fast. In practice, ``exp()`` is usually enough.
@@ -60,12 +56,11 @@ class Actor(BasePolicy):
         use_sde: bool = False,
         log_std_init: float = -3,
         full_std: bool = True,
-        sde_net_arch: Optional[List[int]] = None,
         use_expln: bool = False,
         clip_mean: float = 2.0,
         normalize_images: bool = True,
     ):
-        super(Actor, self).__init__(
+        super().__init__(
             observation_space,
             action_space,
             features_extractor=features_extractor,
@@ -80,13 +75,9 @@ class Actor(BasePolicy):
         self.features_dim = features_dim
         self.activation_fn = activation_fn
         self.log_std_init = log_std_init
-        self.sde_net_arch = sde_net_arch
         self.use_expln = use_expln
         self.full_std = full_std
         self.clip_mean = clip_mean
-
-        if sde_net_arch is not None:
-            warnings.warn("sde_net_arch is deprecated and will be removed in SB3 v2.4.0.", DeprecationWarning)
 
         action_dim = get_action_dim(self.action_space)
         latent_pi_net = create_mlp(features_dim, -1, net_arch, activation_fn)
@@ -199,7 +190,7 @@ class Actor(BasePolicy):
         return self.action_dist.log_prob_from_params(mean_actions, log_std, **kwargs)
 
     def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:
-        return self.forward(observation, deterministic)
+        return self(observation, deterministic)
 
 
 class SACPolicy(BasePolicy):
@@ -213,9 +204,6 @@ class SACPolicy(BasePolicy):
     :param activation_fn: Activation function
     :param use_sde: Whether to use State Dependent Exploration or not
     :param log_std_init: Initial value for the log standard deviation
-    :param sde_net_arch: Network architecture for extracting features
-        when using gSDE. If None, the latent features from the policy will be used.
-        Pass an empty list to use the states as features.
     :param use_expln: Use ``expln()`` function instead of ``exp()`` when using gSDE to ensure
         a positive standard deviation (cf paper). It allows to keep variance
         above zero and prevent it from growing too fast. In practice, ``exp()`` is usually enough.
@@ -243,7 +231,6 @@ class SACPolicy(BasePolicy):
         activation_fn: Type[nn.Module] = nn.ReLU,
         use_sde: bool = False,
         log_std_init: float = -3,
-        sde_net_arch: Optional[List[int]] = None,
         use_expln: bool = False,
         clip_mean: float = 2.0,
         features_extractor_class: Type[BaseFeaturesExtractor] = FlattenExtractor,
@@ -252,9 +239,9 @@ class SACPolicy(BasePolicy):
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
         n_critics: int = 2,
-        share_features_extractor: bool = True,
+        share_features_extractor: bool = False,
     ):
-        super(SACPolicy, self).__init__(
+        super().__init__(
             observation_space,
             action_space,
             features_extractor_class,
@@ -265,10 +252,7 @@ class SACPolicy(BasePolicy):
         )
 
         if net_arch is None:
-            if features_extractor_class == NatureCNN:
-                net_arch = []
-            else:
-                net_arch = [256, 256]
+            net_arch = [256, 256]
 
         actor_arch, critic_arch = get_actor_critic_arch(net_arch)
 
@@ -282,9 +266,6 @@ class SACPolicy(BasePolicy):
             "normalize_images": normalize_images,
         }
         self.actor_kwargs = self.net_args.copy()
-
-        if sde_net_arch is not None:
-            warnings.warn("sde_net_arch is deprecated and will be removed in SB3 v2.4.0.", DeprecationWarning)
 
         sde_kwargs = {
             "use_sde": use_sde,
@@ -402,9 +383,6 @@ class CnnPolicy(SACPolicy):
     :param activation_fn: Activation function
     :param use_sde: Whether to use State Dependent Exploration or not
     :param log_std_init: Initial value for the log standard deviation
-    :param sde_net_arch: Network architecture for extracting features
-        when using gSDE. If None, the latent features from the policy will be used.
-        Pass an empty list to use the states as features.
     :param use_expln: Use ``expln()`` function instead of ``exp()`` when using gSDE to ensure
         a positive standard deviation (cf paper). It allows to keep variance
         above zero and prevent it from growing too fast. In practice, ``exp()`` is usually enough.
@@ -430,7 +408,6 @@ class CnnPolicy(SACPolicy):
         activation_fn: Type[nn.Module] = nn.ReLU,
         use_sde: bool = False,
         log_std_init: float = -3,
-        sde_net_arch: Optional[List[int]] = None,
         use_expln: bool = False,
         clip_mean: float = 2.0,
         features_extractor_class: Type[BaseFeaturesExtractor] = NatureCNN,
@@ -439,9 +416,9 @@ class CnnPolicy(SACPolicy):
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
         n_critics: int = 2,
-        share_features_extractor: bool = True,
+        share_features_extractor: bool = False,
     ):
-        super(CnnPolicy, self).__init__(
+        super().__init__(
             observation_space,
             action_space,
             lr_schedule,
@@ -449,7 +426,6 @@ class CnnPolicy(SACPolicy):
             activation_fn,
             use_sde,
             log_std_init,
-            sde_net_arch,
             use_expln,
             clip_mean,
             features_extractor_class,
@@ -473,9 +449,6 @@ class MultiInputPolicy(SACPolicy):
     :param activation_fn: Activation function
     :param use_sde: Whether to use State Dependent Exploration or not
     :param log_std_init: Initial value for the log standard deviation
-    :param sde_net_arch: Network architecture for extracting features
-        when using gSDE. If None, the latent features from the policy will be used.
-        Pass an empty list to use the states as features.
     :param use_expln: Use ``expln()`` function instead of ``exp()`` when using gSDE to ensure
         a positive standard deviation (cf paper). It allows to keep variance
         above zero and prevent it from growing too fast. In practice, ``exp()`` is usually enough.
@@ -501,7 +474,6 @@ class MultiInputPolicy(SACPolicy):
         activation_fn: Type[nn.Module] = nn.ReLU,
         use_sde: bool = False,
         log_std_init: float = -3,
-        sde_net_arch: Optional[List[int]] = None,
         use_expln: bool = False,
         clip_mean: float = 2.0,
         features_extractor_class: Type[BaseFeaturesExtractor] = CombinedExtractor,
@@ -510,9 +482,9 @@ class MultiInputPolicy(SACPolicy):
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
         n_critics: int = 2,
-        share_features_extractor: bool = True,
+        share_features_extractor: bool = False,
     ):
-        super(MultiInputPolicy, self).__init__(
+        super().__init__(
             observation_space,
             action_space,
             lr_schedule,
@@ -520,7 +492,6 @@ class MultiInputPolicy(SACPolicy):
             activation_fn,
             use_sde,
             log_std_init,
-            sde_net_arch,
             use_expln,
             clip_mean,
             features_extractor_class,
@@ -531,8 +502,3 @@ class MultiInputPolicy(SACPolicy):
             n_critics,
             share_features_extractor,
         )
-
-
-register_policy("MlpPolicy", MlpPolicy)
-register_policy("CnnPolicy", CnnPolicy)
-register_policy("MultiInputPolicy", MultiInputPolicy)

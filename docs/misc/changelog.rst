@@ -4,8 +4,241 @@ Changelog
 ==========
 
 
-Release 1.3.1a9 (WIP)
+Release 1.7.0a1 (WIP)
+--------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Removed deprecated ``create_eval_env``, ``eval_env``, ``eval_log_path``, ``n_eval_episodes`` and ``eval_freq`` parameters,
+  please use an ``EvalCallback`` instead
+- Removed deprecated ``sde_net_arch`` parameter
+- Removed ``ret`` attributes in ``VecNormalize``, please use ``returns`` instead
+
+New Features:
+^^^^^^^^^^^^^
+- Introduced mypy type checking
+
+SB3-Contrib
+^^^^^^^^^^^
+
+Bug Fixes:
+^^^^^^^^^^
+- Fix return type of ``evaluate_actions`` in ``ActorCritcPolicy`` to reflect that entropy is an optional tensor (@Rocamonde)
+- Fix type annotation of ``policy`` in ``BaseAlgorithm`` and ``OffPolicyAlgorithm``
+- Allowed model trained with Python 3.7 to be loaded with Python 3.8+ without the ``custom_objects`` workaround
+- Fix type annotation of ``model`` in ``evaluate_policy``
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+- Used issue forms instead of issue templates
+
+Documentation:
+^^^^^^^^^^^^^^
+- Updated Hugging Face Integration page (@simoninithomas)
+
+
+Release 1.6.2 (2022-10-10)
+--------------------------
+
+**Progress bar in the learn() method, RL Zoo3 is now a package**
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+
+New Features:
+^^^^^^^^^^^^^
+- Added ``progress_bar`` argument in the ``learn()`` method, displayed using TQDM and rich packages
+- Added progress bar callback
+- The `RL Zoo <https://github.com/DLR-RM/rl-baselines3-zoo>`_ can now be installed as a package (``pip install rl_zoo3``)
+
+SB3-Contrib
+^^^^^^^^^^^
+
+Bug Fixes:
+^^^^^^^^^^
+- ``self.num_timesteps`` was initialized properly only after the first call to ``on_step()`` for callbacks
+- Set importlib-metadata version to ``~=4.13`` to be compatible with ``gym=0.21``
+
+Deprecations:
+^^^^^^^^^^^^^
+- Added deprecation warning if parameters ``eval_env``, ``eval_freq`` or ``create_eval_env`` are used (see #925) (@tobirohrer)
+
+Others:
+^^^^^^^
+- Fixed type hint of the ``env_id`` parameter in ``make_vec_env`` and ``make_atari_env`` (@AlexPasqua)
+
+Documentation:
+^^^^^^^^^^^^^^
+- Extended docstring of the ``wrapper_class`` parameter in ``make_vec_env`` (@AlexPasqua)
+
+
+Release 1.6.1 (2022-09-29)
 ---------------------------
+
+**Bug fix release**
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Switched minimum tensorboard version to 2.9.1
+
+New Features:
+^^^^^^^^^^^^^
+- Support logging hyperparameters to tensorboard (@timothe-chaumont)
+- Added checkpoints for replay buffer and ``VecNormalize`` statistics (@anand-bala)
+- Added option for ``Monitor`` to append to existing file instead of overriding (@sidney-tio)
+- The env checker now raises an error when using dict observation spaces and observation keys don't match observation space keys
+
+SB3-Contrib
+^^^^^^^^^^^
+- Fixed the issue of wrongly passing policy arguments when using ``CnnLstmPolicy`` or ``MultiInputLstmPolicy`` with ``RecurrentPPO`` (@mlodel)
+
+Bug Fixes:
+^^^^^^^^^^
+- Fixed issue where ``PPO`` gives NaN if rollout buffer provides a batch of size 1 (@hughperkins)
+- Fixed the issue that ``predict`` does not always return action as ``np.ndarray`` (@qgallouedec)
+- Fixed division by zero error when computing FPS when a small number of time has elapsed in operating systems with low-precision timers.
+- Added multidimensional action space support (@qgallouedec)
+- Fixed missing verbose parameter passing in the ``EvalCallback`` constructor (@burakdmb)
+- Fixed the issue that when updating the target network in DQN, SAC, TD3, the ``running_mean`` and ``running_var`` properties of batch norm layers are not updated (@honglu2875)
+- Fixed incorrect type annotation of the replay_buffer_class argument in ``common.OffPolicyAlgorithm`` initializer, where an instance instead of a class was required (@Rocamonde)
+- Fixed loading saved model with different number of envrionments
+- Removed ``forward()`` abstract method declaration from ``common.policies.BaseModel`` (already defined in ``torch.nn.Module``) to fix type errors in subclasses (@Rocamonde)
+- Fixed the return type of ``.load()`` and ``.learn()`` methods in ``BaseAlgorithm`` so that they now use ``TypeVar`` (@Rocamonde)
+- Fixed an issue where keys with different tags but the same key raised an error in ``common.logger.HumanOutputFormat`` (@Rocamonde and @AdamGleave)
+- Set importlib-metadata version to `~=4.13`
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+- Fixed ``DictReplayBuffer.next_observations`` typing (@qgallouedec)
+- Added support for ``device="auto"`` in buffers and made it default (@qgallouedec)
+- Updated ``ResultsWriter` (used internally by ``Monitor`` wrapper) to automatically create missing directories when ``filename`` is a path (@dominicgkerr)
+
+Documentation:
+^^^^^^^^^^^^^^
+- Added an example of callback that logs hyperparameters to tensorboard. (@timothe-chaumont)
+- Fixed typo in docstring "nature" -> "Nature" (@Melanol)
+- Added info on split tensorboard logs into (@Melanol)
+- Fixed typo in ppo doc (@francescoluciano)
+- Fixed typo in install doc(@jlp-ue)
+- Clarified and standardized verbosity documentation
+- Added link to a GitHub issue in the custom policy documentation (@AlexPasqua)
+- Update doc on exporting models (fixes and added torch jit)
+- Fixed typos (@Akhilez)
+- Standardized the use of ``"`` for string representation in documentation
+
+Release 1.6.0 (2022-07-11)
+---------------------------
+
+**Recurrent PPO (PPO LSTM), better defaults for learning from pixels with SAC/TD3**
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Changed the way policy "aliases" are handled ("MlpPolicy", "CnnPolicy", ...), removing the former
+  ``register_policy`` helper, ``policy_base`` parameter and using ``policy_aliases`` static attributes instead (@Gregwar)
+- SB3 now requires PyTorch >= 1.11
+- Changed the default network architecture when using ``CnnPolicy`` or ``MultiInputPolicy`` with SAC or DDPG/TD3,
+  ``share_features_extractor`` is now set to False by default and the ``net_arch=[256, 256]`` (instead of ``net_arch=[]`` that was before)
+
+New Features:
+^^^^^^^^^^^^^
+
+SB3-Contrib
+^^^^^^^^^^^
+- Added Recurrent PPO (PPO LSTM). See https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/53
+
+
+Bug Fixes:
+^^^^^^^^^^
+- Fixed saving and loading large policies greater than 2GB (@jkterry1, @ycheng517)
+- Fixed final goal selection strategy that did not sample the final achieved goal (@qgallouedec)
+- Fixed a bug with special characters in the tensorboard log name (@quantitative-technologies)
+- Fixed a bug in ``DummyVecEnv``'s and ``SubprocVecEnv``'s seeding function. None value was unchecked (@ScheiklP)
+- Fixed a bug where ``EvalCallback`` would crash when trying to synchronize ``VecNormalize`` stats when observation normalization was disabled
+- Added a check for unbounded actions
+- Fixed issues due to newer version of protobuf (tensorboard) and sphinx
+- Fix exception causes all over the codebase (@cool-RR)
+- Prohibit simultaneous use of optimize_memory_usage and handle_timeout_termination due to a bug (@MWeltevrede)
+- Fixed a bug in ``kl_divergence`` check that would fail when using numpy arrays with MultiCategorical distribution
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+- Upgraded to Python 3.7+ syntax using ``pyupgrade``
+- Removed redundant double-check for nested observations from ``BaseAlgorithm._wrap_env`` (@TibiGG)
+
+Documentation:
+^^^^^^^^^^^^^^
+- Added link to gym doc and gym env checker
+- Fix typo in PPO doc (@bcollazo)
+- Added link to PPO ICLR blog post
+- Added remark about breaking Markov assumption and timeout handling
+- Added doc about MLFlow integration via custom logger (@git-thor)
+- Updated Huggingface integration doc
+- Added copy button for code snippets
+- Added doc about EnvPool and Isaac Gym support
+
+
+Release 1.5.0 (2022-03-25)
+---------------------------
+
+**Bug fixes, early stopping callback**
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Switched minimum Gym version to 0.21.0.
+
+New Features:
+^^^^^^^^^^^^^
+- Added ``StopTrainingOnNoModelImprovement`` to callback collection (@caburu)
+- Makes the length of keys and values in ``HumanOutputFormat`` configurable,
+  depending on desired maximum width of output.
+- Allow PPO to turn of advantage normalization (see `PR #763 <https://github.com/DLR-RM/stable-baselines3/pull/763>`_) @vwxyzjn
+
+SB3-Contrib
+^^^^^^^^^^^
+- coming soon: Cross Entropy Method, see https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/62
+
+Bug Fixes:
+^^^^^^^^^^
+- Fixed a bug in ``VecMonitor``. The monitor did not consider the ``info_keywords`` during stepping (@ScheiklP)
+- Fixed a bug in ``HumanOutputFormat``. Distinct keys truncated to the same prefix would overwrite each others value,
+  resulting in only one being output. This now raises an error (this should only affect a small fraction of use cases
+  with very long keys.)
+- Routing all the ``nn.Module`` calls through implicit rather than explict forward as per pytorch guidelines (@manuel-delverme)
+- Fixed a bug in ``VecNormalize`` where error occurs when ``norm_obs`` is set to False for environment with dictionary observation  (@buoyancy99)
+- Set default ``env`` argument to ``None`` in ``HerReplayBuffer.sample`` (@qgallouedec)
+- Fix ``batch_size`` typing in ``DQN`` (@qgallouedec)
+- Fixed sample normalization in ``DictReplayBuffer`` (@qgallouedec)
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+- Fixed pytest warnings
+- Removed parameter ``remove_time_limit_termination`` in off policy algorithms since it was dead code (@Gregwar)
+
+Documentation:
+^^^^^^^^^^^^^^
+- Added doc on Hugging Face integration (@simoninithomas)
+- Added furuta pendulum project to project list (@armandpl)
+- Fix indentation 2 spaces to 4 spaces in custom env documentation example (@Gautam-J)
+- Update MlpExtractor docstring (@gianlucadecola)
+- Added explanation of the logger output
+- Update ``Directly Accessing The Summary Writer`` in tensorboard integration (@xy9485)
+
+Release 1.4.0 (2022-01-18)
+---------------------------
+
+*TRPO, ARS and multi env training for off-policy algorithms*
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
@@ -14,6 +247,15 @@ Breaking Changes:
 - local variables ``action``, ``done`` and ``reward`` were renamed to their plural form for offpolicy algorithms (``actions``, ``dones``, ``rewards``),
   this may affect custom callbacks.
 - Removed ``episode_reward`` field from ``RolloutReturn()`` type
+
+
+.. warning::
+
+    An update to the ``HER`` algorithm is planned to support multi-env training and remove the max episode length constrain.
+    (see `PR #704 <https://github.com/DLR-RM/stable-baselines3/pull/704>`_)
+    This will be a backward incompatible change (model trained with previous version of ``HER`` won't work with the new version).
+
+
 
 New Features:
 ^^^^^^^^^^^^^
@@ -27,6 +269,7 @@ SB3-Contrib
 ^^^^^^^^^^^
 - Added Trust Region Policy Optimization (TRPO) (@cyprienc)
 - Added Augmented Random Search (ARS) (@sgillen)
+- Coming soon: PPO LSTM, see https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/53
 
 Bug Fixes:
 ^^^^^^^^^^
@@ -84,6 +327,7 @@ Breaking Changes:
     - ``time/total timesteps`` to ``time/total_timesteps`` for off-policy algorithms (PPO and A2C) and the eval callback (on-policy algorithms already used the underscored version),
     - ``rollout/exploration rate`` to ``rollout/exploration_rate`` and
     - ``rollout/success rate`` to ``rollout/success_rate``.
+
 
 New Features:
 ^^^^^^^^^^^^^
@@ -836,7 +1080,8 @@ Maintainers
 -----------
 
 Stable-Baselines3 is currently maintained by `Antonin Raffin`_ (aka `@araffin`_), `Ashley Hill`_ (aka @hill-a),
-`Maximilian Ernestus`_ (aka @ernestum), `Adam Gleave`_ (`@AdamGleave`_) and `Anssi Kanervisto`_ (aka `@Miffyli`_).
+`Maximilian Ernestus`_ (aka @ernestum), `Adam Gleave`_ (`@AdamGleave`_), `Anssi Kanervisto`_ (aka `@Miffyli`_)
+and `Quentin Gallouédec`_ (aka @qgallouedec).
 
 .. _Ashley Hill: https://github.com/hill-a
 .. _Antonin Raffin: https://araffin.github.io/
@@ -846,6 +1091,8 @@ Stable-Baselines3 is currently maintained by `Antonin Raffin`_ (aka `@araffin`_)
 .. _@AdamGleave: https://github.com/adamgleave
 .. _Anssi Kanervisto: https://github.com/Miffyli
 .. _@Miffyli: https://github.com/Miffyli
+.. _Quentin Gallouédec: https://gallouedec.com/
+.. _@qgallouedec: https://github.com/qgallouedec
 
 
 
@@ -856,7 +1103,7 @@ In random order...
 Thanks to the maintainers of V2: @hill-a @enerijunior @AdamGleave @Miffyli
 
 And all the contributors:
-@bjmuld @iambenzo @iandanforth @r7vme @brendenpetersen @huvar @abhiskk @JohannesAck
+@taymuur @bjmuld @iambenzo @iandanforth @r7vme @brendenpetersen @huvar @abhiskk @JohannesAck
 @EliasHasle @mrakgr @Bleyddyn @antoine-galataud @junhyeokahn @AdamGleave @keshaviyengar @tperol
 @XMaster96 @kantneel @Pastafarianist @GerardMaggiolino @PatrickWalter214 @yutingsz @sc420 @Aaahh @billtubbs
 @Miffyli @dwiel @miguelrass @qxcv @jaberkow @eavelardev @ruifeng96150 @pedrohbtp @srivatsankrishnan @evilsocket
@@ -868,4 +1115,8 @@ And all the contributors:
 @ShangqunYu @PierreExeter @JacopoPan @ltbd78 @tom-doerr @Atlis @liusida @09tangriro @amy12xx @juancroldan
 @benblack769 @bstee615 @c-rizz @skandermoalla @MihaiAnca13 @davidblom603 @ayeright @cyprienc
 @wkirgsn @AechPro @CUN-bjy @batu @IljaAvadiev @timokau @kachayev @cleversonahum
-@eleurent @ac-93 @cove9988 @theDebugger811 @hsuehch @Demetrio92 @thomasgubler @IperGiove @steckdenis
+@eleurent @ac-93 @cove9988 @theDebugger811 @hsuehch @Demetrio92 @thomasgubler @IperGiove @ScheiklP
+@simoninithomas @armandpl @manuel-delverme @Gautam-J @gianlucadecola @buoyancy99 @caburu @xy9485
+@Gregwar @ycheng517 @quantitative-technologies @bcollazo @git-thor @TibiGG @cool-RR @MWeltevrede
+@Melanol @qgallouedec @francescoluciano @jlp-ue @burakdmb @timothe-chaumont @honglu2875
+@anand-bala @hughperkins @sidney-tio @AlexPasqua @dominicgkerr @Akhilez @Rocamonde @tobirohrer

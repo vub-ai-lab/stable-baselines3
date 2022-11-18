@@ -2,7 +2,9 @@
 
 <img src="docs/\_static/img/logo.png" align="right" width="40%"/>
 
-[![pipeline status](https://gitlab.com/araffin/stable-baselines3/badges/master/pipeline.svg)](https://gitlab.com/araffin/stable-baselines3/-/commits/master) [![Documentation Status](https://readthedocs.org/projects/stable-baselines/badge/?version=master)](https://stable-baselines3.readthedocs.io/en/master/?badge=master) [![coverage report](https://gitlab.com/araffin/stable-baselines3/badges/master/coverage.svg)](https://gitlab.com/araffin/stable-baselines3/-/commits/master)
+<!-- [![pipeline status](https://gitlab.com/araffin/stable-baselines3/badges/master/pipeline.svg)](https://gitlab.com/araffin/stable-baselines3/-/commits/master) -->
+![CI](https://github.com/DLR-RM/stable-baselines3/workflows/CI/badge.svg)
+[![Documentation Status](https://readthedocs.org/projects/stable-baselines/badge/?version=master)](https://stable-baselines3.readthedocs.io/en/master/?badge=master) [![coverage report](https://gitlab.com/araffin/stable-baselines3/badges/master/coverage.svg)](https://gitlab.com/araffin/stable-baselines3/-/commits/master)
 [![codestyle](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 
@@ -15,7 +17,7 @@ You can read a detailed presentation of Stable Baselines3 in the [v1.0 blog post
 
 These algorithms will make it easier for the research community and industry to replicate, refine, and identify new ideas, and will create good baselines to build projects on top of. We expect these tools will be used as a base around which new ideas can be added, and as a tool for comparing a new approach against existing ones. We also hope that the simplicity of these tools will allow beginners to experiment with a more advanced toolset, without being buried in implementation details.
 
-**Note: despite its simplicity of use, Stable Baselines3 (SB3) assumes you have some knowledge about Reinforcement Learning (RL).** You should not utilize this library without some practice. To that extent, we provide good resources in the [documentation](https://stable-baselines3.readthedocs.io/en/master/guide/rl.html) to get started with RL.
+**Note: Despite its simplicity of use, Stable Baselines3 (SB3) assumes you have some knowledge about Reinforcement Learning (RL).** You should not utilize this library without some practice. To that extent, we provide good resources in the [documentation](https://stable-baselines3.readthedocs.io/en/master/guide/rl.html) to get started with RL.
 
 ## Main Features
 
@@ -51,6 +53,11 @@ A migration guide from SB2 to SB3 can be found in the [documentation](https://st
 
 Documentation is available online: [https://stable-baselines3.readthedocs.io/](https://stable-baselines3.readthedocs.io/)
 
+## Integrations
+
+Stable-Baselines3 has some integration with other libraries/services like Weights & Biases for experiment tracking or Hugging Face for storing/sharing trained models. You can find out more in the [dedicated section](https://stable-baselines3.readthedocs.io/en/master/guide/integrations.html) of the documentation.
+
+
 ## RL Baselines3 Zoo: A Training Framework for Stable Baselines3 Reinforcement Learning Agents
 
 [RL Baselines3 Zoo](https://github.com/DLR-RM/rl-baselines3-zoo) is a training framework for Reinforcement Learning (RL).
@@ -74,17 +81,17 @@ Documentation: https://stable-baselines3.readthedocs.io/en/master/guide/rl_zoo.h
 
 We implement experimental features in a separate contrib repository: [SB3-Contrib](https://github.com/Stable-Baselines-Team/stable-baselines3-contrib)
 
-This allows SB3 to maintain a stable and compact core, while still providing the latest features, like Truncated Quantile Critics (TQC), Quantile Regression DQN (QR-DQN) or PPO with invalid action masking (Maskable PPO).
+This allows SB3 to maintain a stable and compact core, while still providing the latest features, like Recurrent PPO (PPO LSTM), Truncated Quantile Critics (TQC), Quantile Regression DQN (QR-DQN) or PPO with invalid action masking (Maskable PPO).
 
 Documentation is available online: [https://sb3-contrib.readthedocs.io/](https://sb3-contrib.readthedocs.io/)
 
 
 ## Installation
 
-**Note:** Stable-Baselines3 supports PyTorch >= 1.8.1.
+**Note:** Stable-Baselines3 supports PyTorch >= 1.11
 
 ### Prerequisites
-Stable Baselines3 requires python 3.7+.
+Stable Baselines3 requires Python 3.7+.
 
 #### Windows 10
 
@@ -108,7 +115,7 @@ Please read the [documentation](https://stable-baselines3.readthedocs.io/) for m
 
 ## Example
 
-Most of the library tries to follow a sklearn-like syntax for the Reinforcement Learning algorithms.
+Most of the code in the library tries to follow a sklearn-like syntax for the Reinforcement Learning algorithms.
 
 Here is a quick example of how to train and run PPO on a cartpole environment:
 ```python
@@ -119,7 +126,7 @@ from stable_baselines3 import PPO
 env = gym.make("CartPole-v1")
 
 model = PPO("MlpPolicy", env, verbose=1)
-model.learn(total_timesteps=10000)
+model.learn(total_timesteps=10_000)
 
 obs = env.reset()
 for i in range(1000):
@@ -137,7 +144,7 @@ Or just train a model with a one liner if [the environment is registered in Gym]
 ```python
 from stable_baselines3 import PPO
 
-model = PPO('MlpPolicy', 'CartPole-v1').learn(10000)
+model = PPO("MlpPolicy", "CartPole-v1").learn(10_000)
 ```
 
 Please read the [documentation](https://stable-baselines3.readthedocs.io/) for more examples.
@@ -145,7 +152,7 @@ Please read the [documentation](https://stable-baselines3.readthedocs.io/) for m
 
 ## Try it online with Colab Notebooks !
 
-All the following examples can be executed online using Google colab notebooks:
+All the following examples can be executed online using Google Colab notebooks:
 
 - [Full Tutorial](https://github.com/araffin/rl-tutorial-jnrr19)
 - [All Notebooks](https://github.com/Stable-Baselines-Team/rl-colab-notebooks/tree/sb3)
@@ -169,6 +176,7 @@ All the following examples can be executed online using Google colab notebooks:
 | HER   | :x: | :heavy_check_mark: | :heavy_check_mark: | :x:                 | :x:                | :x: |
 | PPO   | :x: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:  | :heavy_check_mark: | :heavy_check_mark: |
 | QR-DQN<sup>[1](#f1)</sup>  | :x: | :x: | :heavy_check_mark: | :x:                 | :x:                | :heavy_check_mark: |
+| RecurrentPPO<sup>[1](#f1)</sup>   | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:  | :heavy_check_mark: | :heavy_check_mark: |
 | SAC   | :x: | :heavy_check_mark: | :x:                | :x:                 | :x:                | :heavy_check_mark: |
 | TD3   | :x: | :heavy_check_mark: | :x:                | :x:                 | :x:                | :heavy_check_mark: |
 | TQC<sup>[1](#f1)</sup>   | :x: | :heavy_check_mark: | :x:                | :x:                 | :x: | :heavy_check_mark: |
@@ -192,9 +200,9 @@ pip install pytest pytest-cov
 make pytest
 ```
 
-You can also do a static type check using `pytype`:
+You can also do a static type check using `pytype` and `mypy`:
 ```
-pip install pytype
+pip install pytype mypy
 make type
 ```
 
@@ -206,8 +214,8 @@ make lint
 
 ## Projects Using Stable-Baselines3
 
-We try to maintain a list of project using stable-baselines3 in the [documentation](https://stable-baselines3.readthedocs.io/en/master/misc/projects.html),
-please tell us when if you want your project to appear on this page ;)
+We try to maintain a list of projects using stable-baselines3 in the [documentation](https://stable-baselines3.readthedocs.io/en/master/misc/projects.html),
+please tell us if you want your project to appear on this page ;)
 
 ## Citing the Project
 
@@ -228,10 +236,10 @@ To cite this repository in publications:
 
 ## Maintainers
 
-Stable-Baselines3 is currently maintained by [Ashley Hill](https://github.com/hill-a) (aka @hill-a), [Antonin Raffin](https://araffin.github.io/) (aka [@araffin](https://github.com/araffin)), [Maximilian Ernestus](https://github.com/ernestum) (aka @ernestum), [Adam Gleave](https://github.com/adamgleave) (@AdamGleave) and [Anssi Kanervisto](https://github.com/Miffyli) (@Miffyli).
+Stable-Baselines3 is currently maintained by [Ashley Hill](https://github.com/hill-a) (aka @hill-a), [Antonin Raffin](https://araffin.github.io/) (aka [@araffin](https://github.com/araffin)), [Maximilian Ernestus](https://github.com/ernestum) (aka @ernestum), [Adam Gleave](https://github.com/adamgleave) (@AdamGleave), [Anssi Kanervisto](https://github.com/Miffyli) (@Miffyli) and [Quentin Gallouédec](https://gallouedec.com/) (@qgallouedec).
 
-**Important Note: We do not do technical support, nor consulting** and don't answer personal questions per email.
-Please post your question on the [RL Discord](https://discord.com/invite/xhfNqQv), [Reddit](https://www.reddit.com/r/reinforcementlearning/) or [Stack Overflow](https://stackoverflow.com/) in that case.
+**Important Note: We do not provide technical support, or consulting** and do not answer personal questions via email.
+Please post your question on the [RL Discord](https://discord.com/invite/xhfNqQv), [Reddit](https://www.reddit.com/r/reinforcementlearning/), or [Stack Overflow](https://stackoverflow.com/) in that case.
 
 
 ## How To Contribute

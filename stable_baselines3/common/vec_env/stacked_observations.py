@@ -7,7 +7,7 @@ from gym import spaces
 from stable_baselines3.common.preprocessing import is_image_space, is_image_space_channels_first
 
 
-class StackedObservations(object):
+class StackedObservations:
     """
     Frame stacking wrapper for data.
 
@@ -199,7 +199,7 @@ class StackedDictObservations(StackedObservations):
             spaces_dict[key] = spaces.Box(low=low, high=high, dtype=subspace.dtype)
         return spaces.Dict(spaces=spaces_dict)
 
-    def reset(self, observation: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+    def reset(self, observation: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:  # pytype: disable=signature-mismatch
         """
         Resets the stacked observations, adds the reset observation to the stack, and returns the stack
 
@@ -219,7 +219,7 @@ class StackedDictObservations(StackedObservations):
         observations: Dict[str, np.ndarray],
         dones: np.ndarray,
         infos: List[Dict[str, Any]],
-    ) -> Tuple[Dict[str, np.ndarray], List[Dict[str, Any]]]:
+    ) -> Tuple[Dict[str, np.ndarray], List[Dict[str, Any]]]:  # pytype: disable=signature-mismatch
         """
         Adds the observations to the stack and uses the dones to update the infos.
 
